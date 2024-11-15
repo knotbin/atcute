@@ -1,0 +1,34 @@
+{
+	"type": "module",
+	"name": "@atcute/lexicons",
+	"version": "1.0.0",
+	"description": "Core package containing AT Protocol schema validation builders and primitive interfaces",
+	"license": "MIT",
+	"repository": {
+		"url": "https://github.com/mary-ext/atcute",
+		"directory": "packages/core/lexicons"
+	},
+	"files": [
+		"dist/",
+		"lib/",
+		"!lib/**/*.bench.ts",
+		"!lib/**/*.test.ts"
+	],
+	"exports": {
+		".": "./dist/index.js"
+	},
+	"scripts": {
+		"build": "tsc --project tsconfig.build.json",
+		"test": "bun test",
+		"generate": "./scripts/generate-lexicons.sh",
+		"prepublish": "rm -rf dist; pnpm run build"
+	},
+	"dependencies": {
+		"@atcute/base32": "workspace:^",
+		"@atcute/base64": "workspace:^",
+		"@atcute/cid": "workspace:^"
+	},
+	"devDependencies": {
+		"@types/bun": "^1.1.12"
+	}
+}

@@ -110,6 +110,22 @@ importers:
         specifier: ^22.8.1
         version: 22.8.1
 
+  packages/core/lexicons:
+    dependencies:
+      '@atcute/base32':
+        specifier: workspace:^
+        version: link:../../utilities/base32
+      '@atcute/base64':
+        specifier: workspace:^
+        version: link:../../utilities/base64
+      '@atcute/cid':
+        specifier: workspace:^
+        version: link:../../utilities/cid
+    devDependencies:
+      '@types/bun':
+        specifier: ^1.1.12
+        version: 1.1.12
+
   packages/definitions/bluemoji:
     devDependencies:
       '@atcute/bluesky':
@@ -190,6 +206,12 @@ importers:
         version: 1.1.12
 
   packages/utilities/base32:
+    devDependencies:
+      '@types/bun':
+        specifier: ^1.1.12
+        version: 1.1.12
+
+  packages/utilities/base64:
     devDependencies:
       '@types/bun':
         specifier: ^1.1.12

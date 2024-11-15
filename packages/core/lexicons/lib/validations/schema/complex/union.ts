@@ -49,10 +49,9 @@ export class UnionSchema<T extends BaseObject> extends Schema<T> {
 	}
 }
 
-type FromObjectSchema<S extends ObjectSchema> = S extends ObjectSchema<infer T> ? T : never;
-export const union = <T extends BaseObject, U extends ObjectSchema<T>[]>(
-	initializer: () => U,
+export const union = <S extends BaseObject[] = BaseObject[]>(
+	initializer: () => { [K in keyof S]: ObjectSchema<S[K]> },
 	closed?: boolean,
-): UnionSchema<FromObjectSchema<U[number]>> => {
+): UnionSchema<S[number]> => {
 	return new UnionSchema(initializer, closed) as any;
 };

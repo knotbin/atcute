@@ -1,6 +1,6 @@
 import { formatLiteral } from '../../utils.js';
 import { Schema, type ValidateContext, type ValidateResult } from '../base.js';
-import { object, type BaseObject, type ObjectSchema } from './object.js';
+import { type BaseObject, type ObjectSchema } from './object.js';
 
 export class UnionSchema<T extends BaseObject> extends Schema<T> {
 	override readonly name = 'union';
@@ -49,20 +49,10 @@ export class UnionSchema<T extends BaseObject> extends Schema<T> {
 	}
 }
 
-/*#__NO_SIDE_EFFECTS__*/
-export const union = <T extends BaseObject>(
-	initializer: () => ObjectSchema<T>[],
+type FromObjectSchema<S extends ObjectSchema> = S extends ObjectSchema<infer T> ? T : never;
+export const union = <T extends BaseObject, U extends ObjectSchema<T>[]>(
+	initializer: () => U,
 	closed?: boolean,
-): UnionSchema<T> => {
-	return new UnionSchema(initializer, closed);
+): UnionSchema<FromObjectSchema<U[number]>> => {
+	return new UnionSchema(initializer, closed) as any;
 };
-
-const a = object<{ $type: 'foo.a' }>('foo.a', {});
-const b = object<{ $type: 'foo.b' }>('foo.b');
-
-const ab = union(() => [a, b]);
-//    ^                    ^
-//    |                    |
-//    |                    reeeee
-//    |
-//    should be `UnionSchema<{ $type: 'foo.a' } | { $type: 'foo.b }>`

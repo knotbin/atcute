@@ -1,29 +1,37 @@
-import { formatLiteral } from '../../utils.js';
 import { Schema, type ValidateContext, type ValidateResult } from '../base.js';
+import { formatLiteral } from '../utils.js';
+
+import type { BaseRecord, RecordSchema } from './record.js';
 import { type BaseObject, type ObjectSchema } from './object.js';
 
-export class UnionSchema<T extends BaseObject> extends Schema<T> {
+type ObjectOrRecordSchema<T extends BaseObject | BaseRecord> = T extends BaseObject
+	? ObjectSchema<T>
+	: T extends BaseRecord
+		? RecordSchema<T>
+		: never;
+
+export class UnionSchema<T extends BaseObject | BaseRecord> extends Schema<T> {
 	override readonly name = 'union';
 
 	readonly closed: boolean;
 
-	private _initializer: () => ObjectSchema<T>[];
-	private _mapping?: Record<string, ObjectSchema<T>>;
+	private _initializer: () => ObjectOrRecordSchema<T>[];
+	private _mapping?: Record<string, ObjectOrRecordSchema<T>>;
 
-	constructor(initializer: () => ObjectSchema<T>[], closed = false) {
+	constructor(initializer: () => ObjectOrRecordSchema<T>[], closed = false) {
 		super();
 
 		this._initializer = initializer;
 		this.closed = closed;
 	}
 
-	get mapping(): Record<string, ObjectSchema<T>> {
+	get mapping(): Record<string, ObjectOrRecordSchema<T>> {
 		let mapping = this._mapping;
 		if (mapping === undefined) {
 			mapping = this._mapping = {};
 
 			for (const object of this._initializer()) {
-				mapping[object.nsid] = object;
+				mapping[object.nsid as string] = object;
 			}
 		}
 
@@ -36,7 +44,7 @@ export class UnionSchema<T extends BaseObject> extends Schema<T> {
 		}
 
 		const type = value.$type;
-		const schema = this.mapping[type] as ObjectSchema<T> | undefined;
+		const schema = this.mapping[type] as ObjectOrRecordSchema<T> | undefined;
 		if (schema == null) {
 			if (this.closed) {
 				return { ok: false, error: `${context.path} has unknown type ${formatLiteral(type)}` };
@@ -50,7 +58,7 @@ export class UnionSchema<T extends BaseObject> extends Schema<T> {
 }
 
 export const union = <S extends BaseObject[] = BaseObject[]>(
-	initializer: () => { [K in keyof S]: ObjectSchema<S[K]> },
+	initializer: () => { [K in keyof S]: ObjectOrRecordSchema<S[K]> },
 	closed?: boolean,
 ): UnionSchema<S[number]> => {
 	return new UnionSchema(initializer, closed) as any;

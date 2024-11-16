@@ -1,5 +1,5 @@
-import { pushPath } from '../../utils.js';
 import { Schema, type ValidateContext, type ValidateResult } from '../base.js';
+import { pushPath } from '../utils.js';
 
 export interface BaseObject {
 	$type?: string;

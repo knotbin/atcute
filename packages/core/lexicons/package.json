@@ -15,7 +15,8 @@
 		"!lib/**/*.test.ts"
 	],
 	"exports": {
-		".": "./dist/index.js"
+		".": "./dist/index.js",
+		"./validations": "./dist/validations.js"
 	},
 	"scripts": {
 		"build": "tsc --project tsconfig.build.json",

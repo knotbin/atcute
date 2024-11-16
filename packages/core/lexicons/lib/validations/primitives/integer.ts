@@ -1,5 +1,5 @@
-import { runConstraints } from '../../utils.js';
 import { Constraint, Schema, type ValidateContext, type ValidateResult } from '../base.js';
+import { runConstraints } from '../utils.js';
 
 export class IntegerSchema extends Schema<number> {
 	override readonly name = 'integer';

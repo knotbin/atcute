@@ -1,7 +1,7 @@
-import { formatLiteral } from '../../utils.js';
 import { Schema, type ValidateContext, type ValidateResult } from '../base.js';
+import { formatLiteral } from '../utils.js';
 
-export type LiteralValue = string | number | boolean;
+import type { LiteralValue } from './literal.js';
 
 export class LiteralEnumSchema<T extends LiteralValue = LiteralValue> extends Schema<T> {
 	override readonly name = 'literal-enum';

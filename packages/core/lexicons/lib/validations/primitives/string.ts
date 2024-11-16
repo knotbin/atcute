@@ -1,5 +1,5 @@
-import { getGraphemeLength, getUtf8Length, runConstraints } from '../../utils.js';
 import { Constraint, Schema, type ValidateContext, type ValidateResult } from '../base.js';
+import { getGraphemeLength, getUtf8Length, runConstraints } from '../utils.js';
 
 export abstract class BaseStringSchema extends Schema<string> {
 	override readonly name = 'string';

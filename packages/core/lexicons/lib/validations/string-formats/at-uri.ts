@@ -1,4 +1,4 @@
-import { isValidAtUri } from '../../../syntax/at-uri.js';
+import { isValidAtUri } from '../../syntax/at-uri.js';
 
 import { type ValidateContext, type ValidateResult } from '../base.js';
 import { BaseStringSchema } from '../primitives/string.js';

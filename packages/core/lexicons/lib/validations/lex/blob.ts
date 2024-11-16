@@ -1,10 +1,10 @@
 import * as CID from '@atcute/cid';
 
-import type { Blob } from '../../../types/atproto.js';
-import { toCidLink } from '../../../wrappers/cid-link.js';
+import type { Blob } from '../../types/atproto.js';
+import { toCidLink } from '../../wrappers/cid-link.js';
 
-import { pushPath } from '../../utils.js';
 import { Schema, type ValidateContext, type ValidateResult } from '../base.js';
+import { pushPath } from '../utils.js';
 
 import { cidLink } from './cid-link.js';
 

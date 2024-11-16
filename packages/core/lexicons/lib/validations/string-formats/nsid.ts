@@ -1,4 +1,4 @@
-import { isValidNsid } from '../../../syntax/nsid.js';
+import { isValidNsid } from '../../syntax/nsid.js';
 
 import { type ValidateContext, type ValidateResult } from '../base.js';
 import { BaseStringSchema } from '../primitives/string.js';

@@ -1,4 +1,4 @@
-import { isValidDatetime } from '../../../syntax/datetime.js';
+import { isValidDatetime } from '../../syntax/datetime.js';
 
 import { type ValidateContext, type ValidateResult } from '../base.js';
 import { BaseStringSchema } from '../primitives/string.js';

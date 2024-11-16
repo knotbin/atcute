@@ -1,4 +1,4 @@
-import type { Constraint, ValidateContext, ValidateResult } from './schema/base.js';
+import type { Constraint, ValidateContext, ValidateResult } from './base.js';
 
 const segmenter = new Intl.Segmenter();
 

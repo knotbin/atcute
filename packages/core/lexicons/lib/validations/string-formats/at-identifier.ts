@@ -1,4 +1,4 @@
-import { isValidAtIdentifier } from '../../../syntax/at-identifier.js';
+import { isValidAtIdentifier } from '../../syntax/at-identifier.js';
 
 import { type ValidateContext, type ValidateResult } from '../base.js';
 import { BaseStringSchema } from '../primitives/string.js';

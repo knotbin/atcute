@@ -1,7 +1,7 @@
 import * as CID from '@atcute/cid';
 
-import type { CidLink } from '../../../types/atproto.js';
-import { CidLinkWrapper } from '../../../wrappers/cid-link.js';
+import type { CidLink } from '../../types/atproto.js';
+import { CidLinkWrapper } from '../../wrappers/cid-link.js';
 
 import { Schema, type ValidateContext, type ValidateResult } from '../base.js';
 

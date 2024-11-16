@@ -1,10 +1,10 @@
 import * as base64 from '@atcute/base64';
 
-import type { Bytes } from '../../../types/atproto.js';
-import { BytesWrapper, fromBytes } from '../../../wrappers/bytes.js';
+import type { Bytes } from '../../types/atproto.js';
+import { BytesWrapper, fromBytes } from '../../wrappers/bytes.js';
 
-import { runConstraints } from '../../utils.js';
 import { Constraint, Schema, type ValidateContext, type ValidateResult } from '../base.js';
+import { runConstraints } from '../utils.js';
 
 export class BytesSchema extends Schema<Bytes> {
 	override readonly name = 'bytes';

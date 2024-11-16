@@ -1,4 +1,4 @@
-import { isValidRecordKey } from '../../../syntax/record-key.js';
+import { isValidRecordKey } from '../../syntax/record-key.js';
 
 import { type ValidateContext, type ValidateResult } from '../base.js';
 import { BaseStringSchema } from '../primitives/string.js';

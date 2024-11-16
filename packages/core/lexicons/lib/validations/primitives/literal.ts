@@ -1,5 +1,5 @@
-import { formatLiteral } from '../../utils.js';
 import { Schema, type ValidateContext, type ValidateResult } from '../base.js';
+import { formatLiteral } from '../utils.js';
 
 export type LiteralValue = string | number | boolean;
 

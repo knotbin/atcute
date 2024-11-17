@@ -258,11 +258,26 @@ export const recordSchema = v.object({
 
 export type RecordSchema = v.Infer<typeof objectSchema>;
 
-export const userTypeSchema = v.union(
+export const mainUserTypeSchema = v.union(
 	recordSchema,
 	xrpcQuerySchema,
 	xrpcProcedureSchema,
 	xrpcSubscriptionSchema,
+	blobSchema,
+	arraySchema,
+	tokenSchema,
+	objectSchema,
+	booleanSchema,
+	integerSchema,
+	stringSchema,
+	bytesSchema,
+	cidLinkSchema,
+	unknownSchema,
+);
+
+export type MainUserTypeSchema = v.Infer<typeof mainUserTypeSchema>;
+
+export const userTypeSchema = v.union(
 	blobSchema,
 	arraySchema,
 	tokenSchema,
@@ -281,30 +296,36 @@ const NSID_RE =
 	/^[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+(\.[a-zA-Z]([a-zA-Z]{0,61}[a-zA-Z])?)$/;
 const nsidType = v.string().assert((v) => NSID_RE.test(v), `string doesn't match nsid format`);
 
-export const documentSchema = v
-	.object({
-		lexicon: v.literal(1),
-		id: nsidType,
-		revision: v.number().optional(),
-		description: v.string().optional(),
-		defs: v.record(userTypeSchema),
-	})
-	.chain((doc) => {
-		const defs = doc.defs;
-
-		for (const id in defs) {
-			const def = defs[id];
-			const type = def.type;
-
-			if (
-				id !== 'main' &&
-				(type === 'record' || type === 'query' || type === 'procedure' || type === 'subscription')
-			) {
-				return v.err({ message: `${type} must be the \`main\` definition`, path: ['defs', id] });
-			}
-		}
-
-		return v.ok(doc);
-	});
+export const documentSchema = v.object({
+	lexicon: v.literal(1),
+	id: nsidType,
+	revision: v.number().optional(),
+	description: v.string().optional(),
+	defs: v.union(
+		v
+			.object({
+				main: recordSchema,
+				record: v.never(),
+			})
+			.rest(userTypeSchema),
+		v
+			.object({
+				main: v.union(xrpcQuerySchema, xrpcProcedureSchema),
+				params: v.never(),
+				input: v.never(),
+				output: v.never(),
+				errors: v.never(),
+			})
+			.rest(userTypeSchema),
+		v
+			.object({
+				main: xrpcSubscriptionSchema,
+				params: v.never(),
+				message: v.never(),
+			})
+			.rest(userTypeSchema),
+		v.record(userTypeSchema),
+	),
+});
 
 export type DocumentSchema = v.Infer<typeof documentSchema>;

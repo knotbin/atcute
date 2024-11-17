@@ -64,25 +64,25 @@ export const bytes = (constraints?: Constraint<Bytes>[]): BytesSchema => {
 
 export class BytesSizeConstraint extends Constraint<Bytes> {
 	override readonly name = 'bytes-size';
-	readonly min: number | undefined;
 	readonly max: number | undefined;
+	readonly min: number | undefined;
 
-	constructor(min: number | undefined, max: number | undefined) {
+	constructor(max: number | undefined, min: number | undefined) {
 		super();
-		this.min = min;
 		this.max = max;
+		this.min = min;
 	}
 
 	override func(value: Bytes, context: ValidateContext): ValidateResult<Bytes> {
 		const buffer = fromBytes(value);
 		const byteLength = buffer.byteLength;
 
-		if (this.min !== undefined && byteLength < this.min) {
-			return { ok: false, error: `${context.path} can't be less than ${this.min} bytes` };
-		}
-
 		if (this.max !== undefined && byteLength > this.max) {
 			return { ok: false, error: `${context.path} can't be greater than ${this.max} bytes` };
+		}
+
+		if (this.min !== undefined && byteLength < this.min) {
+			return { ok: false, error: `${context.path} can't be less than ${this.min} bytes` };
 		}
 
 		return true;
@@ -90,6 +90,6 @@ export class BytesSizeConstraint extends Constraint<Bytes> {
 }
 
 /*#__NO_SIDE_EFFECTS__*/
-export const constrainBytesSize = (min?: number, max?: number): BytesSizeConstraint => {
-	return new BytesSizeConstraint(min, max);
+export const constrainBytesSize = (max?: number, min?: number): BytesSizeConstraint => {
+	return new BytesSizeConstraint(max, min);
 };

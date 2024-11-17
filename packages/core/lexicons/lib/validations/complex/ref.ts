@@ -1,14 +1,42 @@
 import { Schema, type ValidateContext, type ValidateResult } from '../base.js';
 import { formatLiteral } from '../utils.js';
 
-import type { BaseRecord, RecordSchema } from './record.js';
 import { type BaseObject, type ObjectSchema } from './object.js';
+import type { BaseRecord, RecordSchema } from './record.js';
 
 type ObjectOrRecordSchema<T extends BaseObject | BaseRecord> = T extends BaseObject
 	? ObjectSchema<T>
 	: T extends BaseRecord
 		? RecordSchema<T>
 		: never;
+
+export class RefSchema<T extends BaseObject | BaseRecord> extends Schema<T> {
+	override readonly name = 'ref';
+
+	private _initializer: () => ObjectOrRecordSchema<T>;
+	private _object?: ObjectOrRecordSchema<T>;
+
+	constructor(initializer: () => ObjectOrRecordSchema<T>) {
+		super();
+
+		this._initializer = initializer;
+	}
+
+	get object(): ObjectOrRecordSchema<T> {
+		return this._object ?? this._initializer();
+	}
+
+	override func(value: unknown, context: ValidateContext): ValidateResult<T> {
+		return this.object.func(value, context) as ValidateResult<T>;
+	}
+}
+
+/*#__NO_SIDE_EFFECTS__*/
+export const ref = <T extends BaseObject | BaseRecord>(
+	initializer: () => ObjectOrRecordSchema<T>,
+): RefSchema<T> => {
+	return new RefSchema(initializer);
+};
 
 export class UnionSchema<T extends BaseObject | BaseRecord> extends Schema<T> {
 	override readonly name = 'union';
@@ -57,6 +85,7 @@ export class UnionSchema<T extends BaseObject | BaseRecord> extends Schema<T> {
 	}
 }
 
+/*#__NO_SIDE_EFFECTS__*/
 export const union = <S extends BaseObject[] = BaseObject[]>(
 	initializer: () => { [K in keyof S]: ObjectOrRecordSchema<S[K]> },
 	closed?: boolean,

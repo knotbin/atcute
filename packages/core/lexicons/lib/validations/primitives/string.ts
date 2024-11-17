@@ -1,7 +1,7 @@
 import { Constraint, Schema, type ValidateContext, type ValidateResult } from '../base.js';
 import { getGraphemeLength, getUtf8Length, runConstraints } from '../utils.js';
 
-export abstract class BaseStringSchema extends Schema<string> {
+export abstract class BaseStringSchema<T extends string = string> extends Schema<T> {
 	override readonly name = 'string';
 	abstract readonly format:
 		| 'at-identifier'
@@ -60,36 +60,36 @@ export const string = (constraints?: Constraint<string>[]): StringSchema => {
 
 export class StringGraphemeConstraint extends Constraint<string> {
 	override readonly name = 'string-grapheme';
-	readonly min: number | undefined;
 	readonly max: number | undefined;
+	readonly min: number | undefined;
 
-	constructor(min: number | undefined, max: number | undefined) {
+	constructor(max: number | undefined, min: number | undefined) {
 		super();
-		this.min = min;
 		this.max = max;
+		this.min = min;
 	}
 
 	override func(value: string, context: ValidateContext): ValidateResult<string> {
 		const utf16Len = value.length;
-
-		// Fail early if UTF-16 length is less than grapheme length
-		if (this.min !== undefined && utf16Len < this.min) {
-			return { ok: false, error: `${context.path} can't be shorter than ${this.min} graphemes` };
-		}
 
 		// Skip if UTF-16 length is within maximum constraint
 		if (this.max !== undefined && utf16Len <= this.max) {
 			return true;
 		}
 
-		const graphemeLen = getGraphemeLength(value);
-
-		if (this.min !== undefined && graphemeLen < this.min) {
+		// Fail early if UTF-16 length is less than grapheme length
+		if (this.min !== undefined && utf16Len < this.min) {
 			return { ok: false, error: `${context.path} can't be shorter than ${this.min} graphemes` };
 		}
 
+		const graphemeLen = getGraphemeLength(value);
+
 		if (this.max !== undefined && graphemeLen > this.max) {
 			return { ok: false, error: `${context.path} can't be longer than ${this.max} graphemes` };
+		}
+
+		if (this.min !== undefined && graphemeLen < this.min) {
+			return { ok: false, error: `${context.path} can't be shorter than ${this.min} graphemes` };
 		}
 
 		return true;
@@ -97,16 +97,16 @@ export class StringGraphemeConstraint extends Constraint<string> {
 }
 
 /*#__NO_SIDE_EFFECTS__*/
-export const constrainStringGraphemes = (min?: number, max?: number): StringGraphemeConstraint => {
-	return new StringGraphemeConstraint(min, max);
+export const constrainStringGraphemes = (max?: number, min?: number): StringGraphemeConstraint => {
+	return new StringGraphemeConstraint(max, min);
 };
 
 export class StringLengthConstraint extends Constraint<string> {
 	override readonly name = 'string-length';
-	readonly min: number | undefined;
 	readonly max: number | undefined;
+	readonly min: number | undefined;
 
-	constructor(min: number | undefined, max: number | undefined) {
+	constructor(max: number | undefined, min: number | undefined) {
 		super();
 		this.min = min;
 		this.max = max;
@@ -115,12 +115,12 @@ export class StringLengthConstraint extends Constraint<string> {
 	override func(value: string, context: ValidateContext): ValidateResult<string> {
 		const utf8Len = getUtf8Length(value);
 
-		if (this.min !== undefined && utf8Len < this.min) {
-			return { ok: false, error: `${context.path} can't be shorter than ${this.min} characters` };
-		}
-
 		if (this.max !== undefined && utf8Len > this.max) {
 			return { ok: false, error: `${context.path} can't be longer than ${this.max} characters` };
+		}
+
+		if (this.min !== undefined && utf8Len < this.min) {
+			return { ok: false, error: `${context.path} can't be shorter than ${this.min} characters` };
 		}
 
 		return true;
@@ -128,6 +128,6 @@ export class StringLengthConstraint extends Constraint<string> {
 }
 
 /*#__NO_SIDE_EFFECTS__*/
-export const constrainStringLength = (min?: number, max?: number): StringLengthConstraint => {
-	return new StringLengthConstraint(min, max);
+export const constrainStringLength = (max?: number, min?: number): StringLengthConstraint => {
+	return new StringLengthConstraint(max, min);
 };

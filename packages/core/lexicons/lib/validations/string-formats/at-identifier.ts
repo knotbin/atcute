@@ -1,12 +1,13 @@
+import type { At } from '../../index.js';
 import { isValidAtIdentifier } from '../../syntax/at-identifier.js';
 
 import { type ValidateContext, type ValidateResult } from '../base.js';
 import { BaseStringSchema } from '../primitives/string.js';
 
-export class AtIdentifierStringSchema extends BaseStringSchema {
+export class AtIdentifierStringSchema extends BaseStringSchema<At.AtIdentifier> {
 	override readonly format = 'at-identifier';
 
-	override func(value: unknown, context: ValidateContext): ValidateResult<string> {
+	override func(value: unknown, context: ValidateContext): ValidateResult<At.AtIdentifier> {
 		if (typeof value !== 'string' || !isValidAtIdentifier(value)) {
 			return { ok: false, error: `${context.path} must be a valid did or handle string` };
 		}

@@ -10,7 +10,6 @@ export * from './syntax/tid.js';
 export * from './syntax/uri.js';
 
 export type * as At from './types/atproto.js';
-export type * as Branding from './types/branding.js';
 
 export * from './wrappers/bytes.js';
 export * from './wrappers/cid-link.js';

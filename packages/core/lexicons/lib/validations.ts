@@ -12,6 +12,7 @@ export * from './validations/primitives/unknown.js';
 
 export * from './validations/string-formats/at-identifier.js';
 export * from './validations/string-formats/at-uri.js';
+export * from './validations/string-formats/cid.js';
 export * from './validations/string-formats/datetime.js';
 export * from './validations/string-formats/did.js';
 export * from './validations/string-formats/handle.js';
@@ -24,7 +25,7 @@ export * from './validations/string-formats/uri.js';
 export * from './validations/complex/array.js';
 export * from './validations/complex/object.js';
 export * from './validations/complex/record.js';
-export * from './validations/complex/union.js';
+export * from './validations/complex/ref.js';
 
 export * from './validations/lex/blob.js';
 export * from './validations/lex/bytes.js';

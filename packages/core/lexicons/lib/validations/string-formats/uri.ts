@@ -1,12 +1,13 @@
+import type { At } from '../../index.js';
 import { isValidUri } from '../../syntax/uri.js';
 
 import { type ValidateContext, type ValidateResult } from '../base.js';
 import { BaseStringSchema } from '../primitives/string.js';
 
-export class UriStringSchema extends BaseStringSchema {
+export class UriStringSchema extends BaseStringSchema<At.Uri> {
 	override readonly format = 'uri';
 
-	override func(value: unknown, context: ValidateContext): ValidateResult<string> {
+	override func(value: unknown, context: ValidateContext): ValidateResult<At.Uri> {
 		if (typeof value !== 'string' || !isValidUri(value)) {
 			return { ok: false, error: `${context.path} must be a valid uri string` };
 		}

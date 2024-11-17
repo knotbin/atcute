@@ -38,22 +38,22 @@ export const integer = (constraints?: Constraint<number>[]): IntegerSchema => {
 
 export class NumberRangeConstraint extends Constraint<number> {
 	override readonly name = 'number-range';
-	readonly min: number | undefined;
 	readonly max: number | undefined;
+	readonly min: number | undefined;
 
-	constructor(min: number | undefined, max: number | undefined) {
+	constructor(max: number | undefined, min: number | undefined) {
 		super();
-		this.min = min;
-		this.max = max;
+		this.max = min;
+		this.min = max;
 	}
 
 	override func(value: number, context: ValidateContext): ValidateResult<number> {
-		if (this.min !== undefined && value < this.min) {
-			return { ok: false, error: `${context.path} can't be less than ${this.min}` };
-		}
-
 		if (this.max !== undefined && value > this.max) {
 			return { ok: false, error: `${context.path} can't be greater than ${this.max}` };
+		}
+
+		if (this.min !== undefined && value < this.min) {
+			return { ok: false, error: `${context.path} can't be less than ${this.min}` };
 		}
 
 		return true;
@@ -61,6 +61,6 @@ export class NumberRangeConstraint extends Constraint<number> {
 }
 
 /*#__NO_SIDE_EFFECTS__*/
-export const constrainIntegerRange = (min?: number, max?: number): NumberRangeConstraint => {
-	return new NumberRangeConstraint(min, max);
+export const constrainIntegerRange = (max?: number, min?: number): NumberRangeConstraint => {
+	return new NumberRangeConstraint(max, min);
 };

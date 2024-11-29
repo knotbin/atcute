@@ -5,17 +5,19 @@ export interface BaseObject {
 	$type?: string;
 }
 
+export type NsidOf<O> = O extends { $type?: infer V extends string } ? V : null;
+
 interface ObjectShape {
 	[key: string]: Schema<unknown>;
 }
 
-export class ObjectSchema<T extends BaseObject = BaseObject> extends Schema<T> {
+export class ObjectSchema<T = BaseObject> extends Schema<T> {
 	override readonly name = 'object';
 
-	readonly nsid: NonNullable<T['$type']>;
+	readonly nsid: NsidOf<T>;
 	readonly shape: ObjectShape;
 
-	constructor(nsid: NonNullable<T['$type']>, properties: ObjectShape) {
+	constructor(nsid: NsidOf<T>, properties: ObjectShape) {
 		super();
 
 		this.nsid = nsid;
@@ -62,9 +64,6 @@ export class ObjectSchema<T extends BaseObject = BaseObject> extends Schema<T> {
 }
 
 /*#__NO_SIDE_EFFECTS__*/
-export const object = <T extends BaseObject>(
-	nsid: NonNullable<T['$type']>,
-	properties: ObjectShape,
-): ObjectSchema<T> => {
+export const object = <T>(nsid: NsidOf<T>, properties: ObjectShape): ObjectSchema<T> => {
 	return new ObjectSchema(nsid, properties);
 };

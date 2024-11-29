@@ -1,19 +1,22 @@
-import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 
 import { glob } from 'fast-glob';
 import prettier from 'prettier';
 
 import {
 	documentSchema,
-	type UserTypeSchema,
-	type DocumentSchema,
-	type PrimitiveSchema,
-	type IpldTypeSchema,
 	type BlobSchema,
-	type ObjectSchema,
-	type RefVariantSchema,
+	type DocumentSchema,
+	type IpldTypeSchema,
 	type MainUserTypeSchema,
+	type ObjectSchema,
+	type PrimitiveSchema,
+	type RefVariantSchema,
+	type UserTypeSchema,
+	type XrpcProcedureSchema,
+	type XrpcQuerySchema,
+	type XrpcSubscriptionSchema,
 } from '../schema.js';
 import type { LexiconConfig } from '../types.js';
 
@@ -31,15 +34,15 @@ class SourceFile {
 	}
 
 	addNamedImport({ source, imported, local }: { source: string; imported: string; local?: string }) {
-		this.header += `import { ${imported}${local ? ` as ${local}` : ``} } from ${JSON.stringify(source)};`;
+		this.header += `import { ${imported}${local ? ` as ${local}` : ``} } from ${JSON.stringify(source)};\n`;
 	}
 
 	addNamespaceImport({ source, local }: { source: string; local: string }) {
-		this.header += `import * as ${local} from ${JSON.stringify(source)};`;
+		this.header += `import * as ${local} from ${JSON.stringify(source)};\n`;
 	}
 
 	addTypeAlias({ isExported, name, type }: { isExported: boolean; name: string; type: string }) {
-		this.body += `${isExported ? `export ` : ``}type ${name} = ${type};`;
+		this.body += `${isExported ? `export ` : ``}type ${name} = ${type};\n\n`;
 	}
 
 	addConstVariable({
@@ -51,7 +54,7 @@ class SourceFile {
 		name: string;
 		initializer: string;
 	}) {
-		this.body += `${isExported ? `export ` : ``}const ${name} = ${initializer};`;
+		this.body += `${isExported ? `export ` : ``}const ${name} = ${initializer};\n\n`;
 	}
 
 	addInterface({
@@ -63,7 +66,7 @@ class SourceFile {
 		name: string;
 		properties: { name: string; optional?: boolean; type: string }[];
 	}) {
-		this.body += `${isExported ? `export ` : ``}interface ${name} {${properties.map((p) => `${p.name}${p.optional ? `?` : ``}:${p.type}`).join(';')}}`;
+		this.body += `${isExported ? `export ` : ``}interface ${name} {${properties.map((p) => `${p.name}${p.optional ? `?` : ``}:${p.type}`).join(';')}}\n\n`;
 	}
 
 	async source() {
@@ -101,7 +104,7 @@ export const generate = async (config: LexiconConfig) => {
 
 	// Write each document
 	for (const doc of documents) {
-		const file = makeDocument(map, doc);
+		const file = makeDocument(map, doc, false);
 
 		const filename = path.join(config.outdir ?? 'lexicons', file.filename);
 		const source = await file.source();
@@ -115,7 +118,7 @@ const getDocumentFilePath = (id: string) => {
 	return `types/${id.replaceAll('.', '/')}.ts`;
 };
 
-const makeDocument = (map: DocumentMap, doc: DocumentSchema): SourceFile => {
+const makeDocument = (map: DocumentMap, doc: DocumentSchema, isClient: boolean): SourceFile => {
 	const filename = getDocumentFilePath(doc.id);
 	const file = new SourceFile(filename);
 
@@ -135,12 +138,20 @@ const makeDocument = (map: DocumentMap, doc: DocumentSchema): SourceFile => {
 				break;
 			}
 			case 'query': {
+				writeXrpcParams(file, def, !isClient);
+				writeXrpcInput(file, map, imports, defUri, def, !isClient);
+				writeXrpcOutput(file, map, imports, defUri, def, false);
 				break;
 			}
 			case 'procedure': {
+				writeXrpcParams(file, def, !isClient);
+				writeXrpcInput(file, map, imports, defUri, def, !isClient);
+				writeXrpcOutput(file, map, imports, defUri, def, false);
 				break;
 			}
 			case 'subscription': {
+				writeXrpcParams(file, def, !isClient);
+				writeXrpcOutput(file, map, imports, defUri, def, false);
 				break;
 			}
 			default: {
@@ -171,7 +182,7 @@ const writeImports = (file: SourceFile, imports: ImportSet) => {
 		const target = getDocumentFilePath(ns);
 
 		file.addNamespaceImport({
-			source: path.relative(dirname, target.replace(/\.ts$/, '.js')),
+			source: path.relative(dirname, target.replace(/\.ts$/, '.js')).replace(/^(?!\.{1,2}\/)/, './'),
 			local: toTitleCase(stripHash(ns)),
 		});
 	}
@@ -230,7 +241,7 @@ const writeUserType = (
 			break;
 		}
 		case 'object': {
-			writeObjectType(file, map, imports, defUri, def);
+			writeObject(file, map, imports, defUri, def);
 
 			break;
 		}
@@ -240,14 +251,15 @@ const writeUserType = (
 	}
 };
 
-const writeObjectType = (
+const writeObject = (
 	file: SourceFile,
 	map: DocumentMap,
 	imports: ImportSet,
 	defUri: string,
 	def: ObjectSchema,
 	interfaceName = toTitleCase(getHash(defUri)),
-	defaultsArePresent = true,
+	includeType = true,
+	defaultsArePresent = false,
 ) => {
 	const required = new Set(def.required);
 	const nullable = new Set(def.nullable);
@@ -255,88 +267,93 @@ const writeObjectType = (
 	const entries = Object.entries(def.properties);
 
 	{
-		file.addInterface({
-			isExported: true,
-			name: interfaceName,
-			properties: [
-				{
-					name: '$type',
-					optional: true,
-					type: JSON.stringify(stripMainHash(defUri)),
-				},
-				...entries.map(([prop, propDef]) => {
-					const isOptional = !(
-						required.has(prop) ||
-						(defaultsArePresent && 'default' in propDef && propDef.default !== undefined)
-					);
+		const members = entries.map(([prop, propDef]) => {
+			const hasDefault = 'default' in propDef && propDef.default !== undefined;
 
-					let type: string | string[];
-					let array = false;
+			const isOptional = !(required.has(prop) || (defaultsArePresent && hasDefault));
+			const isNullable = nullable.has(prop);
 
-					switch (propDef.type) {
+			let type: string | string[];
+			let array = false;
+
+			switch (propDef.type) {
+				case 'boolean':
+				case 'integer':
+				case 'string':
+				case 'unknown': {
+					type = makePrimitiveType(propDef);
+					break;
+				}
+				case 'blob':
+				case 'bytes':
+				case 'cid-link': {
+					type = makeLexType(propDef);
+					break;
+				}
+				case 'ref':
+				case 'union': {
+					type = makeRefType(map, imports, defUri, propDef);
+					break;
+				}
+				case 'array': {
+					const itemDef = propDef.items;
+
+					switch (itemDef.type) {
 						case 'boolean':
 						case 'integer':
 						case 'string':
 						case 'unknown': {
-							type = makePrimitiveType(propDef);
+							type = makePrimitiveType(itemDef);
 							break;
 						}
 						case 'blob':
 						case 'bytes':
 						case 'cid-link': {
-							type = makeLexType(propDef);
+							type = makeLexType(itemDef);
 							break;
 						}
 						case 'ref':
 						case 'union': {
-							type = makeRefType(map, imports, defUri, propDef);
-							break;
-						}
-						case 'array': {
-							const itemDef = propDef.items;
-
-							switch (itemDef.type) {
-								case 'boolean':
-								case 'integer':
-								case 'string':
-								case 'unknown': {
-									type = makePrimitiveType(itemDef);
-									break;
-								}
-								case 'blob':
-								case 'bytes':
-								case 'cid-link': {
-									type = makeLexType(itemDef);
-									break;
-								}
-								case 'ref':
-								case 'union': {
-									type = makeRefType(map, imports, defUri, itemDef);
-									break;
-								}
-							}
-
-							array = true;
+							type = makeRefType(map, imports, defUri, itemDef);
 							break;
 						}
 					}
 
-					return {
-						name: prop,
-						optional: isOptional,
-						type: makeType(type, { array, nullable: nullable.has(prop) }),
-					};
-				}),
-			],
+					array = true;
+					break;
+				}
+			}
+
+			return {
+				name: prop,
+				optional: isOptional,
+				type: makeType(type, { array, nullable: isNullable }),
+			};
+		});
+
+		file.addInterface({
+			isExported: true,
+			name: interfaceName,
+			properties: includeType
+				? [
+						{
+							name: '$type',
+							optional: true,
+							type: JSON.stringify(stripMainHash(defUri)),
+						},
+						...members,
+					]
+				: members,
 		});
 	}
 
 	{
 		const properties = entries.map(([prop, propDef]) => {
-			const isOptional = !(
-				required.has(prop) ||
-				(defaultsArePresent && 'default' in propDef && propDef.default !== undefined)
-			);
+			const hasDefault = 'default' in propDef && propDef.default !== undefined;
+
+			// const isOptional = !(required.has(prop) || (defaultsArePresent && hasDefault));
+			const isOptional = !required.has(prop);
+			const isNullable = nullable.has(prop);
 
 			let value: string;
 
@@ -388,24 +405,246 @@ const writeObjectType = (
 				}
 			}
 
+			// if (isOptional) {
+			// 	value = `v.optional(${value})`;
+			// } else if (hasDefault) {
+			// 	value = `v.optional(${value}, ${JSON.stringify(propDef.default)})`;
+			// }
 			if (isOptional) {
-				value = `v.optional(${value})`;
+				if (!hasDefault) {
+					value = `v.optional(${value})`;
+				} else {
+					value = `v.optional(${value}, ${JSON.stringify(propDef.default)})`;
+				}
 			}
-			if (nullable.has(prop)) {
+
+			if (isNullable) {
 				value = `v.nullable(${value})`;
 			}
 
 			return `${JSON.stringify(prop)}: ${value}`;
 		});
 
-		const nsid = stripMainHash(defUri);
-		const expression = `v.object<${interfaceName}>(${JSON.stringify(nsid)}, {\n${properties.join(', ')}})`;
+		const nsid = includeType ? JSON.stringify(stripMainHash(defUri)) : 'null';
+		const expression = `v.object<${interfaceName}>(${nsid}, {\n${properties.join(', ')}})`;
 
 		file.addConstVariable({
 			isExported: true,
 			name: interfaceName + 'Schema',
 			initializer: expression,
 		});
+	}
+};
+
+const writeXrpcParams = (
+	file: SourceFile,
+	def: XrpcQuerySchema | XrpcProcedureSchema | XrpcSubscriptionSchema,
+	defaultsArePresent: boolean,
+) => {
+	const schema = def.parameters;
+	if (!schema) {
+		file.addTypeAlias({
+			isExported: true,
+			name: `Params`,
+			type: `undefined`,
+		});
+
+		file.addConstVariable({
+			isExported: true,
+			name: `ParamsSchema`,
+			initializer: `undefined`,
+		});
+
+		return;
+	}
+
+	const required = new Set(schema.required);
+	const entries = Object.entries(schema.properties);
+
+	{
+		const members = entries.map(([prop, propDef]) => {
+			const hasDefault = 'default' in propDef && propDef.default !== undefined;
+
+			const isOptional = !(required.has(prop) || (defaultsArePresent && hasDefault));
+
+			let type: string | string[];
+			let array = false;
+
+			switch (propDef.type) {
+				case 'boolean':
+				case 'integer':
+				case 'string':
+				case 'unknown': {
+					type = makePrimitiveType(propDef);
+					break;
+				}
+				case 'array': {
+					const itemDef = propDef.items;
+
+					switch (itemDef.type) {
+						case 'boolean':
+						case 'integer':
+						case 'string':
+						case 'unknown': {
+							type = makePrimitiveType(itemDef);
+							break;
+						}
+					}
+
+					array = true;
+					break;
+				}
+			}
+
+			return {
+				name: prop,
+				optional: isOptional,
+				type: makeType(type, { array }),
+			};
+		});
+
+		file.addInterface({
+			isExported: true,
+			name: `Params`,
+			properties: members,
+		});
+	}
+
+	{
+		const properties = entries.map(([prop, propDef]) => {
+			const hasDefault = 'default' in propDef && propDef.default !== undefined;
+
+			// const isOptional = !(required.has(prop) || (defaultsArePresent && hasDefault));
+			const isOptional = !required.has(prop);
+
+			let value: string;
+
+			switch (propDef.type) {
+				case 'boolean':
+				case 'integer':
+				case 'string':
+				case 'unknown': {
+					value = makePrimitiveSchema(propDef);
+					break;
+				}
+				case 'array': {
+					const itemDef = propDef.items;
+
+					switch (itemDef.type) {
+						case 'boolean':
+						case 'integer':
+						case 'string':
+						case 'unknown': {
+							value = makePrimitiveSchema(itemDef);
+							break;
+						}
+					}
+
+					value = `v.array(${value})`;
+					break;
+				}
+			}
+
+			// if (isOptional) {
+			// 	value = `v.optional(${value})`;
+			// } else if (hasDefault) {
+			// 	value = `v.optional(${value}, ${JSON.stringify(propDef.default)})`;
+			// }
+			if (isOptional) {
+				if (!hasDefault) {
+					value = `v.optional(${value})`;
+				} else {
+					value = `v.optional(${value}, ${JSON.stringify(propDef.default)})`;
+				}
+			}
+
+			return `${JSON.stringify(prop)}: ${value}`;
+		});
+
+		const expression = `v.object<Params>(null, {\n${properties.join(', ')}})`;
+
+		file.addConstVariable({
+			isExported: true,
+			name: `ParamsSchema`,
+			initializer: expression,
+		});
+	}
+};
+
+const writeXrpcInput = (
+	file: SourceFile,
+	map: DocumentMap,
+	imports: ImportSet,
+	defUri: string,
+	def: XrpcQuerySchema | XrpcProcedureSchema,
+	defaultsArePresent: boolean,
+) => {
+	if (def.type === 'query') {
+		file.addTypeAlias({
+			isExported: true,
+			name: `Input`,
+			type: `undefined`,
+		});
+
+		file.addConstVariable({
+			isExported: true,
+			name: `InputSchema`,
+			initializer: `undefined`,
+		});
+	} else if (def.input?.schema) {
+		const schema = def.input.schema;
+
+		if (schema.type === 'ref' || schema.type === 'union') {
+			file.addTypeAlias({
+				isExported: true,
+				name: `Input`,
+				type: makeRefType(map, imports, defUri, schema),
+			});
+
+			file.addConstVariable({
+				isExported: true,
+				name: 'InputSchema',
+				initializer: makeRefSchema(map, imports, defUri, schema),
+			});
+		} else {
+			writeObject(file, map, imports, defUri, schema, `Input`, false, defaultsArePresent);
+		}
+	} else if (def.input?.encoding) {
+		file.addTypeAlias({
+			isExported: true,
+			name: `Input`,
+			type: `string | Uint8Array | Blob`,
+		});
+	}
+};
+
+const writeXrpcOutput = (
+	file: SourceFile,
+	map: DocumentMap,
+	imports: ImportSet,
+	defUri: string,
+	def: XrpcQuerySchema | XrpcProcedureSchema | XrpcSubscriptionSchema,
+	defaultsArePresent: boolean,
+) => {
+	const schema = def.type === 'subscription' ? def.message?.schema : def.output?.schema;
+	if (!schema) {
+		return;
+	}
+
+	if (schema.type === 'ref' || schema.type === 'union') {
+		file.addTypeAlias({
+			isExported: true,
+			name: `Output`,
+			type: makeRefType(map, imports, defUri, schema),
+		});
+
+		file.addConstVariable({
+			isExported: true,
+			name: 'OutputSchema',
+			initializer: makeRefSchema(map, imports, defUri, schema),
+		});
+	} else {
+		writeObject(file, map, imports, defUri, schema, `Output`, false, defaultsArePresent);
 	}
 };
 
@@ -423,101 +662,70 @@ const resolveRef = (map: DocumentMap, defUri: string, namespace: string, id: str
 	return def;
 };
 
-const makeRefType = (
-	map: DocumentMap,
-	imports: ImportSet,
-	defUri: string,
-	def: RefVariantSchema,
-): string | string[] => {
-	switch (def.type) {
-		case 'ref': {
-			const ref = def.ref;
+const makeRefType = (map: DocumentMap, imports: ImportSet, defUri: string, def: RefVariantSchema): string => {
+	const refs = def.type === 'union' ? def.refs : [def.ref];
 
-			if (ref.startsWith('#')) {
-				const namespace = stripHash(defUri);
-				const id = ref.slice(1);
+	const members = refs.map((ref): string => {
+		if (ref.startsWith('#')) {
+			const namespace = stripHash(defUri);
+			const id = ref.slice(1);
 
-				const def = resolveRef(map, defUri, namespace, id);
+			const res = resolveRef(map, defUri, namespace, id);
 
-				switch (def.type) {
-					case 'procedure':
-					case 'query':
-					case 'subscription': {
-						throw new Error(`${defUri} referenced ${ref}, a '${def.type}' definition`);
-					}
-					case 'record': {
-						return `Record`;
-					}
-					default: {
-						return `${toTitleCase(id)}`;
-					}
+			switch (res.type) {
+				case 'record': {
+					return `Record`;
 				}
-			} else {
-				const [namespace, id = 'main'] = ref.split('#');
+				case 'object': {
+					return toTitleCase(id);
+				}
+				case 'string': {
+					if (def.type === 'union') {
+						throw new Error(`${defUri} referenced ${ref}, a '${res.type}' definition`);
+					}
 
-				const def = resolveRef(map, defUri, namespace, id);
-				imports.add(namespace);
+					return toTitleCase(id);
+				}
+				default: {
+					throw new Error(`${defUri} referenced ${ref}, a '${res.type}' definition`);
+				}
+			}
+		} else {
+			const [namespace, id = 'main'] = ref.split('#');
 
-				switch (def.type) {
-					case 'procedure':
-					case 'query':
-					case 'subscription': {
-						throw new Error(`${defUri} referenced ${ref}, a '${def.type}' definition`);
+			const res = resolveRef(map, defUri, namespace, id);
+			imports.add(namespace);
+
+			switch (res.type) {
+				case 'record': {
+					return `${toTitleCase(namespace)}.Record`;
+				}
+				case 'object': {
+					return `${toTitleCase(namespace)}.${toTitleCase(id)}`;
+				}
+				case 'string': {
+					if (def.type === 'union') {
+						throw new Error(`${defUri} referenced ${ref}, a '${res.type}' definition`);
 					}
-					case 'record': {
-						return `${toTitleCase(namespace)}.Record`;
-					}
-					default: {
-						return `${toTitleCase(namespace)}.${toTitleCase(id)}`;
-					}
+
+					return `${toTitleCase(namespace)}.${toTitleCase(id)}`;
+				}
+				default: {
+					throw new Error(`${defUri} referenced ${ref}, a '${res.type}' definition`);
 				}
 			}
 		}
-		case 'union': {
-			const union = def.refs.map((ref): string => {
-				if (ref.startsWith('#')) {
-					const namespace = stripHash(defUri);
-					const id = ref.slice(1);
+	});
 
-					const def = resolveRef(map, defUri, namespace, id);
-
-					switch (def.type) {
-						case 'procedure':
-						case 'query':
-						case 'subscription': {
-							throw new Error(`${defUri} referenced ${ref}, a '${def.type}' definition`);
-						}
-						case 'record': {
-							return `Record`;
-						}
-						default: {
-							return `${toTitleCase(id)}`;
-						}
-					}
-				} else {
-					const [namespace, id = 'main'] = ref.split('#');
-
-					const def = resolveRef(map, defUri, namespace, id);
-					imports.add(namespace);
-
-					switch (def.type) {
-						case 'record': {
-							return `${toTitleCase(namespace)}.Record`;
-						}
-						case 'object': {
-							return `${toTitleCase(namespace)}.${toTitleCase(id)}`;
-						}
-						default: {
-							throw new Error(`${defUri} referenced ${ref}, a '${def.type}' definition`);
-						}
-					}
-				}
-			});
-
-			// `closed` is currently ignored
-			return union;
-		}
+	if (def.type === 'union') {
+		return `At.Union<${makeType(members)}>`;
 	}
+
+	if (members.length !== 1) {
+		throw new Error(`Assertion failed`);
+	}
+
+	return makeType(members);
 };
 
 const makeRefSchema = (
@@ -526,94 +734,69 @@ const makeRefSchema = (
 	defUri: string,
 	def: RefVariantSchema,
 ): string => {
-	switch (def.type) {
-		case 'ref': {
-			const ref = def.ref;
+	const refs = def.type === 'union' ? def.refs : [def.ref];
 
-			if (ref.startsWith('#')) {
-				const namespace = stripHash(defUri);
-				const id = ref.slice(1);
+	const members = refs.map((ref): string => {
+		if (ref.startsWith('#')) {
+			const namespace = stripHash(defUri);
+			const id = ref.slice(1);
 
-				const def = resolveRef(map, defUri, namespace, id);
+			const res = resolveRef(map, defUri, namespace, id);
 
-				switch (def.type) {
-					case 'procedure':
-					case 'query':
-					case 'subscription': {
-						throw new Error(`${defUri} referenced ${ref}, a '${def.type}' definition`);
-					}
-					case 'record': {
-						return `v.ref(() => RecordSchema)`;
-					}
-					default: {
-						return `v.ref(() => ${toTitleCase(id) + `Schema`})`;
-					}
+			switch (res.type) {
+				case 'record': {
+					return `Record`;
 				}
-			} else {
-				const [namespace, id = 'main'] = ref.split('#');
+				case 'object': {
+					return `${toTitleCase(id)}Schema`;
+				}
+				case 'string': {
+					if (def.type === 'union') {
+						throw new Error(`${defUri} referenced ${ref}, a '${res.type}' definition`);
+					}
 
-				const def = resolveRef(map, defUri, namespace, id);
-				imports.add(namespace);
+					return `${toTitleCase(id)}Schema`;
+				}
+				default: {
+					throw new Error(`${defUri} referenced ${ref}, a '${res.type}' definition`);
+				}
+			}
+		} else {
+			const [namespace, id = 'main'] = ref.split('#');
 
-				switch (def.type) {
-					case 'procedure':
-					case 'query':
-					case 'subscription': {
-						throw new Error(`${defUri} referenced ${ref}, a '${def.type}' definition`);
+			const res = resolveRef(map, defUri, namespace, id);
+			imports.add(namespace);
+
+			switch (res.type) {
+				case 'record': {
+					return `${toTitleCase(namespace)}.RecordSchema`;
+				}
+				case 'object': {
+					return `${toTitleCase(namespace)}.${toTitleCase(id)}Schema`;
+				}
+				case 'string': {
+					if (def.type === 'union') {
+						throw new Error(`${defUri} referenced ${ref}, a '${res.type}' definition`);
 					}
-					case 'record': {
-						return `v.ref(() => ${toTitleCase(namespace)}.RecordSchema)`;
-					}
-					default: {
-						return `v.ref(() => ${toTitleCase(namespace)}.${toTitleCase(id) + `Schema`})`;
-					}
+
+					return `${toTitleCase(namespace)}.${toTitleCase(id)}Schema`;
+				}
+				default: {
+					throw new Error(`${defUri} referenced ${ref}, a '${res.type}' definition`);
 				}
 			}
 		}
-		case 'union': {
-			const members = def.refs.map((ref): string => {
-				if (ref.startsWith('#')) {
-					const namespace = stripHash(defUri);
-					const id = ref.slice(1);
+	});
 
-					const def = resolveRef(map, defUri, namespace, id);
-
-					switch (def.type) {
-						case 'procedure':
-						case 'query':
-						case 'subscription': {
-							throw new Error(`${defUri} referenced ${ref}, a '${def.type}' definition`);
-						}
-						case 'record': {
-							return `RecordSchema`;
-						}
-						default: {
-							return toTitleCase(id) + `Schema`;
-						}
-					}
-				} else {
-					const [namespace, id = 'main'] = ref.split('#');
-
-					const def = resolveRef(map, defUri, namespace, id);
-					imports.add(namespace);
-
-					switch (def.type) {
-						case 'record': {
-							return `${toTitleCase(namespace)}.RecordSchema`;
-						}
-						case 'object': {
-							return `${toTitleCase(namespace)}.${toTitleCase(id) + `Schema`}`;
-						}
-						default: {
-							throw new Error(`${defUri} referenced ${ref}, a '${def.type}' definition`);
-						}
-					}
-				}
-			});
-
-			return `v.union(() => ${makeArray(members, true)}, ${def.closed})`;
-		}
+	if (def.type === 'union') {
+		return `v.union(() => ${makeArray(members, true)}, ${def.closed})`;
 	}
+
+	if (members.length !== 1) {
+		throw new Error(`Assertion failed`);
+	}
+
+	return `v.ref(() => ${members[0]})`;
 };
 
 const makePrimitiveType = (def: PrimitiveSchema): string | string[] => {

@@ -28,3 +28,11 @@ export interface Blob<T extends string = string> {
 	ref: CidLink;
 	size: number;
 }
+
+type Prettify<T> = {
+	[K in keyof T]: T[K];
+} & {};
+
+export type Union<T extends { $type?: string }> = T extends { $type?: infer V extends string }
+	? Prettify<{ $type: V } & Omit<T, '$type'>>
+	: never;

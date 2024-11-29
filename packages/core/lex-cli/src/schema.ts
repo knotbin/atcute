@@ -305,23 +305,23 @@ export const documentSchema = v.object({
 		v
 			.object({
 				main: recordSchema,
-				record: v.never(),
+				record: v.never().optional(),
 			})
 			.rest(userTypeSchema),
 		v
 			.object({
 				main: v.union(xrpcQuerySchema, xrpcProcedureSchema),
-				params: v.never(),
-				input: v.never(),
-				output: v.never(),
-				errors: v.never(),
+				params: v.never().optional(),
+				input: v.never().optional(),
+				output: v.never().optional(),
+				errors: v.never().optional(),
 			})
 			.rest(userTypeSchema),
 		v
 			.object({
 				main: xrpcSubscriptionSchema,
-				params: v.never(),
-				message: v.never(),
+				params: v.never().optional(),
+				message: v.never().optional(),
 			})
 			.rest(userTypeSchema),
 		v.record(userTypeSchema),

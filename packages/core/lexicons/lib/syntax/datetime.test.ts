@@ -2,6 +2,8 @@ import { describe, it, expect } from 'bun:test';
 import { isValidDatetime } from './datetime.js';
 
 describe('matches interop test', () => {
+	// https://github.com/bluesky-social/atproto-interop-tests/commit/94186876e41ab41cf93a0e051322ffbdd82dad9f
+
 	it('passes valid test', () => {
 		const test = `
 # "preferred"

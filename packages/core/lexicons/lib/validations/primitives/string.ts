@@ -113,7 +113,8 @@ export class StringLengthConstraint extends Constraint<string> {
 	}
 
 	override func(value: string, context: ValidateContext): ValidateResult<string> {
-		// Assume upper-bound of UTF-16 to UTF-8 conversion, as the conversion can be expensive
+		// UTF-8 conversion can be expensive, especially in runtimes with no native support (Hermes)
+		// Let's assume upper-bound of the UTF-16 to UTF-8 conversion:
 		// - code point that needs 1 UTF-16 code units can be 1 to 3 bytes in UTF-8 (3x)
 		// - code point that needs 2 UTF-16 code units can be 4 bytes in UTF-18 (2x)
 		const maybeUtf8Len = value.length * 3;

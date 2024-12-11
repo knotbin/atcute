@@ -72,24 +72,24 @@ export class StringGraphemeConstraint extends Constraint<string> {
 	override func(value: string, context: ValidateContext): ValidateResult<string> {
 		const utf16Len = value.length;
 
-		// Skip if UTF-16 length is within maximum constraint
-		if (this.max !== undefined && utf16Len <= this.max) {
-			return true;
-		}
-
 		// Fail early if UTF-16 length is less than grapheme length
 		if (this.min !== undefined && utf16Len < this.min) {
 			return { ok: false, error: `${context.path} can't be shorter than ${this.min} graphemes` };
 		}
 
-		const graphemeLen = getGraphemeLength(value);
-
-		if (this.max !== undefined && graphemeLen > this.max) {
-			return { ok: false, error: `${context.path} can't be longer than ${this.max} graphemes` };
+		// Skip if UTF-16 length is within maximum constraint
+		if (this.max !== undefined && utf16Len <= this.max) {
+			return true;
 		}
+
+		const graphemeLen = getGraphemeLength(value);
 
 		if (this.min !== undefined && graphemeLen < this.min) {
 			return { ok: false, error: `${context.path} can't be shorter than ${this.min} graphemes` };
+		}
+
+		if (this.max !== undefined && graphemeLen > this.max) {
+			return { ok: false, error: `${context.path} can't be longer than ${this.max} graphemes` };
 		}
 
 		return true;
@@ -130,12 +130,12 @@ export class StringLengthConstraint extends Constraint<string> {
 
 		const utf8Len = getUtf8Length(value);
 
-		if (this.max !== undefined && utf8Len > this.max) {
-			return { ok: false, error: `${context.path} can't be longer than ${this.max} characters` };
-		}
-
 		if (this.min !== undefined && utf8Len < this.min) {
 			return { ok: false, error: `${context.path} can't be shorter than ${this.min} characters` };
+		}
+
+		if (this.max !== undefined && utf8Len > this.max) {
+			return { ok: false, error: `${context.path} can't be longer than ${this.max} characters` };
 		}
 
 		return true;

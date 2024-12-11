@@ -70,6 +70,8 @@ export class StringGraphemeConstraint extends Constraint<string> {
 	}
 
 	override func(value: string, context: ValidateContext): ValidateResult<string> {
+		// Grapheme conversion can be expensive, even with native Intl.Segmenter support
+		// Let's assume that each character in the UTF-16 string is exactly one grapheme
 		const utf16Len = value.length;
 
 		// Fail early if UTF-16 length is less than grapheme length

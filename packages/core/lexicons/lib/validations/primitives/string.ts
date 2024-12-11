@@ -113,6 +113,21 @@ export class StringLengthConstraint extends Constraint<string> {
 	}
 
 	override func(value: string, context: ValidateContext): ValidateResult<string> {
+		// Assume upper-bound of UTF-16 to UTF-8 conversion, as the conversion can be expensive
+		// - code point that needs 1 UTF-16 code units can be 1 to 3 bytes in UTF-8 (3x)
+		// - code point that needs 2 UTF-16 code units can be 4 bytes in UTF-18 (2x)
+		const maybeUtf8Len = value.length * 3;
+
+		// Fail early if definitely too short
+		if (this.min !== undefined && maybeUtf8Len < this.min) {
+			return { ok: false, error: `${context.path} can't be shorter than ${this.min} characters` };
+		}
+
+		// Skip if definitely within UTF-8 length constraints
+		if (this.max !== undefined && maybeUtf8Len <= this.max) {
+			return true;
+		}
+
 		const utf8Len = getUtf8Length(value);
 
 		if (this.max !== undefined && utf8Len > this.max) {

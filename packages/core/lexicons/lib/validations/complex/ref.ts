@@ -56,7 +56,7 @@ export class UnionSchema<T extends BaseObject | BaseRecord> extends Schema<T> {
 	get mapping(): Record<string, ObjectOrRecordSchema<T>> {
 		let mapping = this._mapping;
 		if (mapping === undefined) {
-			mapping = this._mapping = {};
+			mapping = this._mapping = Object.create(null) as {};
 
 			for (const object of this._initializer()) {
 				mapping[object.nsid as string] = object;

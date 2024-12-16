@@ -26,8 +26,8 @@ type ImportSet = Set<string>;
 class SourceFile {
 	filename: string;
 
-	private header = '';
-	private body = '';
+	header = '';
+	body = '';
 
 	constructor(filename: string) {
 		this.filename = filename;
@@ -66,7 +66,7 @@ class SourceFile {
 		name: string;
 		properties: { name: string; optional?: boolean; type: string }[];
 	}) {
-		this.body += `${isExported ? `export ` : ``}interface ${name} {${properties.map((p) => `${p.name}${p.optional ? `?` : ``}:${p.type}`).join(';')}}\n\n`;
+		this.body += `${isExported ? `export ` : ``}interface ${name} {${properties.map((p) => `${JSON.stringify(p.name)}${p.optional ? `?` : ``}:${p.type}`).join(';')}}\n\n`;
 	}
 
 	async source() {
@@ -124,8 +124,9 @@ const makeDocument = (map: DocumentMap, doc: DocumentSchema, isClient: boolean):
 
 	const imports: ImportSet = new Set();
 
-	file.addNamedImport({ source: '@atcute/lexicons', imported: 'At' });
-	file.addNamespaceImport({ source: '@atcute/lexicons/validations', local: 'v' });
+	file.addNamedImport({ source: '@atcute/lexicons', imported: 'At', local: `$At` });
+	file.addNamedImport({ source: '@atcute/lexicons', imported: 'Rpc', local: '$Rpc' });
+	file.addNamespaceImport({ source: '@atcute/lexicons/validations', local: `$v` });
 
 	const defs = doc.defs;
 
@@ -141,17 +142,20 @@ const makeDocument = (map: DocumentMap, doc: DocumentSchema, isClient: boolean):
 				writeXrpcParams(file, def, !isClient);
 				writeXrpcInput(file, map, imports, defUri, def, !isClient);
 				writeXrpcOutput(file, map, imports, defUri, def, false);
+				writeXrpcType(file, defUri, def);
 				break;
 			}
 			case 'procedure': {
 				writeXrpcParams(file, def, !isClient);
 				writeXrpcInput(file, map, imports, defUri, def, !isClient);
 				writeXrpcOutput(file, map, imports, defUri, def, false);
+				writeXrpcType(file, defUri, def);
 				break;
 			}
 			case 'subscription': {
 				writeXrpcParams(file, def, !isClient);
 				writeXrpcOutput(file, map, imports, defUri, def, false);
+				writeXrpcType(file, defUri, def);
 				break;
 			}
 			default: {
@@ -400,33 +404,33 @@ const writeObject = (
 						}
 					}
 
-					value = `v.array(${value})`;
+					value = `$v.array(${value})`;
 					break;
 				}
 			}
 
 			// if (isOptional) {
-			// 	value = `v.optional(${value})`;
+			// 	value = `$v.optional(${value})`;
 			// } else if (hasDefault) {
-			// 	value = `v.optional(${value}, ${JSON.stringify(propDef.default)})`;
+			// 	value = `$v.optional(${value}, ${JSON.stringify(propDef.default)})`;
 			// }
 			if (isOptional) {
 				if (!hasDefault) {
-					value = `v.optional(${value})`;
+					value = `$v.optional(${value})`;
 				} else {
-					value = `v.optional(${value}, ${JSON.stringify(propDef.default)})`;
+					value = `$v.optional(${value}, ${JSON.stringify(propDef.default)})`;
 				}
 			}
 
 			if (isNullable) {
-				value = `v.nullable(${value})`;
+				value = `$v.nullable(${value})`;
 			}
 
 			return `${JSON.stringify(prop)}: ${value}`;
 		});
 
 		const nsid = includeType ? JSON.stringify(stripMainHash(defUri)) : 'null';
-		const expression = `v.object<${interfaceName}>(${nsid}, {\n${properties.join(', ')}})`;
+		const expression = `$v.object<${interfaceName}>(${nsid}, {\n${properties.join(', ')}})`;
 
 		file.addConstVariable({
 			isExported: true,
@@ -446,13 +450,13 @@ const writeXrpcParams = (
 		file.addTypeAlias({
 			isExported: true,
 			name: `Params`,
-			type: `undefined`,
+			type: `null`,
 		});
 
 		file.addConstVariable({
 			isExported: true,
 			name: `ParamsSchema`,
-			initializer: `undefined`,
+			initializer: `null`,
 		});
 
 		return;
@@ -540,28 +544,28 @@ const writeXrpcParams = (
 						}
 					}
 
-					value = `v.array(${value})`;
+					value = `$v.array(${value})`;
 					break;
 				}
 			}
 
 			// if (isOptional) {
-			// 	value = `v.optional(${value})`;
+			// 	value = `$v.optional(${value})`;
 			// } else if (hasDefault) {
-			// 	value = `v.optional(${value}, ${JSON.stringify(propDef.default)})`;
+			// 	value = `$v.optional(${value}, ${JSON.stringify(propDef.default)})`;
 			// }
 			if (isOptional) {
 				if (!hasDefault) {
-					value = `v.optional(${value})`;
+					value = `$v.optional(${value})`;
 				} else {
-					value = `v.optional(${value}, ${JSON.stringify(propDef.default)})`;
+					value = `$v.optional(${value}, ${JSON.stringify(propDef.default)})`;
 				}
 			}
 
 			return `${JSON.stringify(prop)}: ${value}`;
 		});
 
-		const expression = `v.object<Params>(null, {\n${properties.join(', ')}})`;
+		const expression = `$v.object<Params>(null, {\n${properties.join(', ')}})`;
 
 		file.addConstVariable({
 			isExported: true,
@@ -576,22 +580,10 @@ const writeXrpcInput = (
 	map: DocumentMap,
 	imports: ImportSet,
 	defUri: string,
-	def: XrpcQuerySchema | XrpcProcedureSchema,
+	def: XrpcProcedureSchema,
 	defaultsArePresent: boolean,
 ) => {
-	if (def.type === 'query') {
-		file.addTypeAlias({
-			isExported: true,
-			name: `Input`,
-			type: `undefined`,
-		});
-
-		file.addConstVariable({
-			isExported: true,
-			name: `InputSchema`,
-			initializer: `undefined`,
-		});
-	} else if (def.input?.schema) {
+	if (def.input?.schema) {
 		const schema = def.input.schema;
 
 		if (schema.type === 'ref' || schema.type === 'union') {
@@ -615,6 +607,24 @@ const writeXrpcInput = (
 			name: `Input`,
 			type: `string | Uint8Array | Blob`,
 		});
+
+		file.addConstVariable({
+			isExported: true,
+			name: `InputSchema`,
+			initializer: `null`,
+		});
+	} else {
+		file.addTypeAlias({
+			isExported: true,
+			name: `Input`,
+			type: `null`,
+		});
+
+		file.addConstVariable({
+			isExported: true,
+			name: `InputSchema`,
+			initializer: `null`,
+		});
 	}
 };
 
@@ -628,24 +638,146 @@ const writeXrpcOutput = (
 ) => {
 	const schema = def.type === 'subscription' ? def.message?.schema : def.output?.schema;
 	if (!schema) {
+		file.addTypeAlias({
+			isExported: true,
+			name: `Output`,
+			type: `null`,
+		});
+
+		file.addConstVariable({
+			isExported: true,
+			name: `OutputSchema`,
+			initializer: `null`,
+		});
+
 		return;
 	}
 
 	if (schema.type === 'ref' || schema.type === 'union') {
 		file.addTypeAlias({
 			isExported: true,
-			name: `Output`,
+			name: def.type !== 'subscription' ? `Output` : `Message`,
 			type: makeRefType(map, imports, defUri, schema),
 		});
 
 		file.addConstVariable({
 			isExported: true,
-			name: 'OutputSchema',
+			name: def.type !== 'subscription' ? `OutputSchema` : `MessageSchema`,
 			initializer: makeRefSchema(map, imports, defUri, schema),
 		});
 	} else {
 		writeObject(file, map, imports, defUri, schema, `Output`, false, defaultsArePresent);
 	}
+};
+
+const writeXrpcType = (
+	file: SourceFile,
+	defUri: string,
+	def: XrpcQuerySchema | XrpcProcedureSchema | XrpcSubscriptionSchema,
+) => {
+	file.body += `declare module '@atcute/lexicons/ambient' {`;
+
+	if (def.type === 'query') {
+		const params = def.parameters;
+		const output = def.output;
+
+		let paramsType = 'null';
+		let responseType = 'null';
+
+		if (params) {
+			paramsType = `Params`;
+		}
+
+		if (output) {
+			if (output.schema) {
+				if (output.encoding?.includes(',')) {
+					responseType = `$Rpc.JsonResponse<Output> | $Rpc.BlobResponse | $Rpc.BytesResponse`;
+				} else {
+					responseType = `$Rpc.JsonResponse<Output>`;
+				}
+			} else if (output.encoding) {
+				responseType = `$Rpc.BlobResponse | $Rpc.BytesResponse`;
+			}
+		}
+
+		file.addInterface({
+			isExported: false,
+			name: `Queries`,
+			properties: [
+				{
+					name: stripMainHash(defUri),
+					type: `{\nparams: ${paramsType}; response: ${responseType} }`,
+				},
+			],
+		});
+	} else if (def.type === 'procedure') {
+		const params = def.parameters;
+		const input = def.input;
+		const output = def.output;
+
+		let paramsType = 'null';
+		let bodyType = 'null';
+		let responseType = 'null';
+
+		if (params) {
+			paramsType = `Params`;
+		}
+
+		if (input) {
+			bodyType = `Input`;
+		}
+
+		if (output) {
+			if (output.schema) {
+				if (output.encoding?.includes(',')) {
+					responseType = `$Rpc.JsonResponse<Output> | $Rpc.BlobResponse | $Rpc.BytesResponse`;
+				} else {
+					responseType = `$Rpc.JsonResponse<Output>`;
+				}
+			} else if (output.encoding) {
+				responseType = `$Rpc.BlobResponse | $Rpc.BytesResponse`;
+			}
+		}
+
+		file.addInterface({
+			isExported: false,
+			name: `Procedures`,
+			properties: [
+				{
+					name: stripMainHash(defUri),
+					type: `{\nparams: ${paramsType}; body: ${bodyType}; response: ${responseType} }`,
+				},
+			],
+		});
+	} else if (def.type === 'subscription') {
+		const params = def.parameters;
+		const message = def.message;
+
+		let paramsType = 'null';
+		let messageSchema = 'unknown';
+
+		if (params) {
+			paramsType = `Params`;
+		}
+
+		if (message?.schema) {
+			messageSchema = `Message`;
+		}
+
+		file.addInterface({
+			isExported: false,
+			name: `Queries`,
+			properties: [
+				{
+					name: stripMainHash(defUri),
+					type: `{\nparams: ${paramsType}; message: ${messageSchema} }`,
+				},
+			],
+		});
+	}
+
+	file.body += `}`;
+	file.body += `\n\n`;
 };
 
 const resolveRef = (map: DocumentMap, defUri: string, namespace: string, id: string): MainUserTypeSchema => {
@@ -718,7 +850,7 @@ const makeRefType = (map: DocumentMap, imports: ImportSet, defUri: string, def: 
 	});
 
 	if (def.type === 'union') {
-		return `At.Union<${makeType(members)}>`;
+		return `$At.Union<${makeType(members)}>`;
 	}
 
 	if (members.length !== 1) {
@@ -789,14 +921,14 @@ const makeRefSchema = (
 	});
 
 	if (def.type === 'union') {
-		return `v.union(() => ${makeArray(members, true)}, ${def.closed})`;
+		return `$v.union(() => ${makeArray(members, true)}, ${def.closed})`;
 	}
 
 	if (members.length !== 1) {
 		throw new Error(`Assertion failed`);
 	}
 
-	return `v.ref(() => ${members[0]})`;
+	return `$v.ref(() => ${members[0]})`;
 };
 
 const makePrimitiveType = (def: PrimitiveSchema): string | string[] => {
@@ -844,22 +976,22 @@ const makePrimitiveSchema = (def: PrimitiveSchema): string => {
 	switch (def.type) {
 		case 'boolean': {
 			if (def.const) {
-				return `v.literal(${def.const})`;
+				return `$v.literal(${def.const})`;
 			}
 
-			return `v.boolean()`;
+			return `$v.boolean()`;
 		}
 		case 'integer': {
 			if (def.const) {
 				const literal = '' + def.const;
 
-				return `v.literal(${literal})`;
+				return `$v.literal(${literal})`;
 			}
 
 			if (def.enum) {
 				const literals = def.enum.map((v) => '' + v);
 
-				return `v.literalEnum(${makeArray(literals, true)})`;
+				return `$v.literalEnum(${makeArray(literals, true)})`;
 			}
 
 			const constraints: string[] = [];
@@ -872,10 +1004,10 @@ const makePrimitiveSchema = (def: PrimitiveSchema): string => {
 					args = ['' + def.maximum, '' + def.minimum];
 				}
 
-				constraints.push(`v.constrainIntegerRange(${args.join(', ')})`);
+				constraints.push(`$v.constrainIntegerRange(${args.join(', ')})`);
 			}
 
-			return `v.integer(${makeArray(constraints)})`;
+			return `$v.integer(${makeArray(constraints)})`;
 		}
 		case 'string': {
 			if (def.format) {
@@ -928,19 +1060,19 @@ const makePrimitiveSchema = (def: PrimitiveSchema): string => {
 					}
 				}
 
-				return `v.${identifier}()`;
+				return `$v.${identifier}()`;
 			}
 
 			if (def.const) {
 				const literal = JSON.stringify(def.const);
 
-				return `v.literal(${literal})`;
+				return `$v.literal(${literal})`;
 			}
 
 			if (def.enum) {
 				const literals = def.enum.map((v) => JSON.stringify(v));
 
-				return `v.literalEnum(${makeArray(literals, true)})`;
+				return `$v.literalEnum(${makeArray(literals, true)})`;
 			}
 
 			const constraints: string[] = [];
@@ -953,7 +1085,7 @@ const makePrimitiveSchema = (def: PrimitiveSchema): string => {
 					args = ['' + def.maxGraphemes, '' + def.minGraphemes];
 				}
 
-				constraints.push(`v.constrainStringGraphemes(${args.join(', ')})`);
+				constraints.push(`$v.constrainStringGraphemes(${args.join(', ')})`);
 			}
 
 			if (def.maxLength !== undefined || def.minLength !== undefined) {
@@ -964,13 +1096,13 @@ const makePrimitiveSchema = (def: PrimitiveSchema): string => {
 					args = ['' + def.maxLength, '' + def.minLength];
 				}
 
-				constraints.push(`v.constrainStringLength(${args.join(', ')})`);
+				constraints.push(`$v.constrainStringLength(${args.join(', ')})`);
 			}
 
-			return `v.string(${makeArray(constraints)})`;
+			return `$v.string(${makeArray(constraints)})`;
 		}
 		case 'unknown': {
-			return `v.unknown()`;
+			return `$v.unknown()`;
 		}
 	}
 };
@@ -978,13 +1110,13 @@ const makePrimitiveSchema = (def: PrimitiveSchema): string => {
 const makeLexType = (def: IpldTypeSchema | BlobSchema): string | string[] => {
 	switch (def.type) {
 		case 'blob': {
-			return 'At.Blob';
+			return `$At.Blob`;
 		}
 		case 'bytes': {
-			return 'At.Bytes';
+			return `$At.Bytes`;
 		}
 		case 'cid-link': {
-			return 'At.CidLink';
+			return `$At.CidLink`;
 		}
 	}
 };
@@ -992,7 +1124,7 @@ const makeLexType = (def: IpldTypeSchema | BlobSchema): string | string[] => {
 const makeLexSchema = (def: IpldTypeSchema | BlobSchema): string => {
 	switch (def.type) {
 		case 'blob': {
-			return `v.blob()`;
+			return `$v.blob()`;
 		}
 		case 'bytes': {
 			const constraints: string[] = [];
@@ -1005,13 +1137,13 @@ const makeLexSchema = (def: IpldTypeSchema | BlobSchema): string => {
 					args = ['' + def.maxLength, '' + def.minLength];
 				}
 
-				constraints.push(`v.constrainBytesSize(${args.join(', ')})`);
+				constraints.push(`$v.constrainBytesSize(${args.join(', ')})`);
 			}
 
-			return `v.bytes(${makeArray(constraints)})`;
+			return `$v.bytes(${makeArray(constraints)})`;
 		}
 		case 'cid-link': {
-			return `v.cidLink()`;
+			return `$v.cidLink()`;
 		}
 	}
 };

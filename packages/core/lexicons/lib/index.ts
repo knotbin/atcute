@@ -10,6 +10,7 @@ export * from './syntax/tid.js';
 export * from './syntax/uri.js';
 
 export type * as At from './types/atproto.js';
+export type * as Rpc from './types/rpc.js';
 
 export * from './wrappers/bytes.js';
 export * from './wrappers/cid-link.js';

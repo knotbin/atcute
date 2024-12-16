@@ -16,7 +16,8 @@
 	],
 	"exports": {
 		".": "./dist/index.js",
-		"./validations": "./dist/validations.js"
+		"./validations": "./dist/validations.js",
+		"./ambient": "./dist/ambient.js"
 	},
 	"scripts": {
 		"build": "tsc --project tsconfig.build.json",

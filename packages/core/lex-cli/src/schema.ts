@@ -4,7 +4,7 @@ import { isValidNsid } from '@atcute/lexicons';
 
 const integerType = v
 	.number()
-	.assert((v) => Number.isInteger(v) && v >= 0, 'Number is expected to be a positive integer');
+	.assert((v) => Number.isInteger(v) && v >= 0, 'number is expected to be a positive integer');
 
 export const booleanSchema = v.object({
 	type: v.literal('boolean'),
@@ -142,7 +142,7 @@ export const refUnionSchema = v
 		refs: v.array(refString),
 		closed: v.boolean().optional(() => false),
 	})
-	.assert((v) => !v.closed || v.refs.length > 0, `A closed union can't have empty refs list`);
+	.assert((v) => !v.closed || v.refs.length > 0, `closed union can't have empty refs list`);
 
 export type RefUnionSchema = v.Infer<typeof refUnionSchema>;
 
@@ -187,7 +187,7 @@ const refineRequiredProperties = <T extends { required: string[]; properties: Re
 ): v.ValitaResult<T> => {
 	for (const field of obj.required) {
 		if (obj.properties[field] === undefined) {
-			return v.err(`Required field "${field}" not defined`);
+			return v.err(`required field "${field}" not defined`);
 		}
 	}
 

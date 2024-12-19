@@ -1,13 +1,13 @@
 export type Cid = string;
-export type Did = `did:${string}`;
+export type Did = `did:${string}:${string}`;
 
-export type Nsid = string;
+export type Nsid = `${string}.${string}.${string}`;
 export type RecordKey = string;
 
-export type Uri = `${string}://${string}`;
+export type Uri = `${string}:${string}`;
 export type AtUri = `at://${string}`;
 
-export type Handle = string;
+export type Handle = `${string}.${string}`;
 export type AtIdentifier = Did | Handle;
 
 export type Datetime = string;

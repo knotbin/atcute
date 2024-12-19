@@ -1,5 +1,7 @@
 import * as v from '@badrap/valita';
 
+import { isValidNsid } from '@atcute/lexicons';
+
 const integerType = v
 	.number()
 	.assert((v) => Number.isInteger(v) && v >= 0, 'Number is expected to be a positive integer');
@@ -106,10 +108,29 @@ export const ipldTypeSchema = v.union(bytesSchema, cidLinkSchema);
 
 export type IpldTypeSchema = v.Infer<typeof ipldTypeSchema>;
 
+const REF_KEY_REGEX = /^[a-zA-Z](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$/;
+
+const refString = v.string().chain((input) => {
+	// app.bsky.feed.post
+	// app.bsky.feed.defs#postView
+	// #postView
+	const [nsid, key] = input.split('#') as [nsid: string, key: string | undefined];
+
+	if (nsid !== '' && !isValidNsid(nsid)) {
+		return v.err(`ref contains invalid nsid`);
+	}
+
+	if (key !== undefined && !REF_KEY_REGEX.test(key)) {
+		return v.err(`ref contains invalid key`);
+	}
+
+	return v.ok(input);
+});
+
 export const refSchema = v.object({
 	type: v.literal('ref'),
 	description: v.string().optional(),
-	ref: v.string(),
+	ref: refString,
 });
 
 export type RefSchema = v.Infer<typeof refSchema>;
@@ -118,7 +139,7 @@ export const refUnionSchema = v
 	.object({
 		type: v.literal('union'),
 		description: v.string().optional(),
-		refs: v.array(v.string()),
+		refs: v.array(refString),
 		closed: v.boolean().optional(() => false),
 	})
 	.assert((v) => !v.closed || v.refs.length > 0, `A closed union can't have empty refs list`);

@@ -140,7 +140,6 @@ const makeDocument = (map: DocumentMap, doc: DocumentSchema, isClient: boolean):
 			}
 			case 'query': {
 				writeXrpcParams(file, def, !isClient);
-				writeXrpcInput(file, map, imports, defUri, def, !isClient);
 				writeXrpcOutput(file, map, imports, defUri, def, false);
 				writeXrpcType(file, defUri, def);
 				break;
@@ -1213,4 +1212,19 @@ const toCamelCase = (v: string): string => {
 const toScreamingSnakeCase = (v: string): string => {
 	v = v.replace(/[.#-]+/gi, '_'); // convert dashes, dots, and hashes into underscores
 	return v.toUpperCase(); // and scream!
+};
+
+const getNsidPatterns = (nsid: string): string[] => {
+	const parts = nsid.split('.');
+	if (parts.length < 3) {
+		return [];
+	}
+
+	const patterns = [nsid];
+	for (let idx = parts.length - 1; idx > 1; idx--) {
+		const pattern = parts.slice(0, idx).join('.') + `.*`;
+		patterns.push(pattern);
+	}
+
+	return patterns;
 };
